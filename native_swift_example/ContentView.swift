@@ -8,17 +8,12 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var landmarkRepository = LandmarkRepository()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationStack {
+            HomeScreen(landmarkRepository: landmarkRepository)
         }
-        .padding()
     }
-}
 
-#Preview {
-    ContentView()
 }
