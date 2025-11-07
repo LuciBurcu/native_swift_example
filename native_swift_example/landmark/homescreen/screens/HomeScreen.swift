@@ -1,45 +1,48 @@
 import SwiftUI
 
 struct HomeScreen: View {
-    @ObservedObject var landmarkRepository: LandmarkRepository
-    @State private var landmarks: [Landmark] = []
+    @ObservedObject var homeScreenViewModel: HomeScreenViewModel
     @State private var path: [String] = [] // Stack of navigations
-    
-    // Sheet state
-    @State private var shouldShowBottomSheet = false
-    @State private var idToDelete: String?
     
     var body: some View {
         NavigationStack(path: $path) {
-            List(landmarks) { landmark in
-                LandmarkListItem(landmark: landmark)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // Tap gesture is handled by the NavigationStack, we need to add the path
-                        path.append(landmark.id)
+            ZStack {
+                if homeScreenViewModel.isLoading {
+                    Text("Loading...")
+                } else if homeScreenViewModel.isError {
+                    VStack(spacing: 16) {
+                        Text("Error loading landmarks")
+                            .foregroundColor(.red)
+                        Button("Retry") {
+                            Task {
+                                await homeScreenViewModel.getItems()
+                            }
+                        }
                     }
-                    .onLongPressGesture {
-                        shouldShowBottomSheet = true
-                        idToDelete = landmark.id
+                } else {
+                    List(homeScreenViewModel.landmarks) { landmark in
+                        LandmarkListItem(landmark: landmark)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                path.append(landmark.id)
+                            }
+                            .onLongPressGesture {
+                                homeScreenViewModel.showBottomSheet()
+                                homeScreenViewModel.idToDelete = landmark.id
+                            }
                     }
+                    .navigationTitle("Homepage")
+                    .navigationBarTitleDisplayMode(.large)
+                    .navigationDestination(for: String.self) { id in
+                        DetailsScreen(landmarkRepository: homeScreenViewModel.landmarkRepository, id: id)
+                    }
+                }
             }
-            .navigationTitle("Homepage")
-            .navigationBarTitleDisplayMode(.large)
-            .navigationDestination(for: String.self) { id in
-                DetailsScreen(landmarkRepository: landmarkRepository, id: id)
-            }
-            .onAppear {
-                landmarks = landmarkRepository.getLandmarks()
-            }
-            // Bottom sheet for delete action
-            .sheet(isPresented: $shouldShowBottomSheet) {
+            .sheet(isPresented: $homeScreenViewModel.shouldShowBottomSheet) {
                 VStack(spacing: 20) {
                     Button(action: {
-                        if let id = idToDelete {
-                            landmarkRepository.deleteLandmark(id: id)
-                            landmarks = landmarkRepository.getLandmarks()
-                        }
-                        shouldShowBottomSheet = false
+                        homeScreenViewModel.deleteLandmarkById(homeScreenViewModel.idToDelete)
+                        homeScreenViewModel.hideBottomSheet()
                     }) {
                         Text("Delete Landmark")
                             .foregroundColor(.white)
